@@ -53,30 +53,33 @@ function Particles({ onLoaded }) {
 
 function CameraAnimator({ active, onAnimationComplete }) {
   const { camera } = useThree();
-  const duration = 2; // Duration of the animation in seconds
-  const initialPosition = new THREE.Vector3(0, 0, -5);
-  const finalPosition = new THREE.Vector3(0, 0, 0);
-  const initialRotation = new THREE.Euler(90 * Math.PI / 180, 90 * Math.PI / 180, 0, 'XYZ');
-  const finalRotation = new THREE.Euler(0, 0, 0, 'XYZ');
+  const duration = 4; // Duration of the animation in seconds
 
   useFrame((state, delta) => {
     if (!active) return;
 
     let progress = state.clock.getElapsedTime() / duration;
-    if (progress > 1) progress = 1;
+    if (progress >= 1) {
+      progress = 1;
+      onAnimationComplete();
+    }
 
-    // Interpolate position
-    camera.position.lerpVectors(initialPosition, finalPosition, progress);
+    // Interpolate position from (0, 0, -5) to (0, 0, 0)
+    camera.position.lerp(new THREE.Vector3(0, 0, -5 * (1 - progress)), 0.1);
 
-    // Interpolate rotation using slerp for quaternions
-    const initialQuaternion = new THREE.Quaternion().setFromEuler(initialRotation);
-    const finalQuaternion = new THREE.Quaternion().setFromEuler(finalRotation);
-    THREE.Quaternion.slerp(initialQuaternion, finalQuaternion, camera.quaternion, progress);
+    // Interpolate rotation from (90, 90, 0) to (0, 0, 0)
+    const initialRotation = new THREE.Euler(90 * Math.PI / 180, 90 * Math.PI / 180, 0);
+    const finalRotation = new THREE.Euler(0, 0, 0);
+    THREE.Quaternion.slerp(
+      new THREE.Quaternion().setFromEuler(initialRotation),
+      new THREE.Quaternion().setFromEuler(finalRotation),
+      camera.quaternion,
+      progress
+    );
 
     if (progress === 1) {
-      camera.position.copy(finalPosition);
-      camera.rotation.copy(finalRotation);
-      onAnimationComplete();
+      camera.position.set(0, 0, 0);
+      camera.rotation.set(0, 0, 0);
     }
   });
 
