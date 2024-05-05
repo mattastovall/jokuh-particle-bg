@@ -1,25 +1,35 @@
-import { useState, useMemo, useEffect } from 'react';
-import reactLogo from './assets/react.svg';
-import viteLogo from '/vite.svg';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import './App.css';
-import { Canvas, useThree, useFrame } from '@react-three/fiber';
+import { Canvas, useThree, useFrame, extend, useLoader } from '@react-three/fiber';
 import { Suspense } from 'react';
-import { Sphere } from '@react-three/drei';
+import { Sphere, PerspectiveCamera, Html } from '@react-three/drei';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import * as THREE from 'three';
+function cubicBezier(p0, p1, p2, p3, t) {
+  const k = 1 - t;
+  return (k * k * k * p0) +
+         (3 * k * k * t * p1) +
+         (3 * k * t * t * p2) +
+         (t * t * t * p3);
+}
+
+function customEasing(t) {
+  return cubicBezier(0.07, 0.62, 0.43, 1, t);
+}
 
 function Particles({ onLoaded }) {
   useEffect(() => {
-    // Simulate any setup or asynchronous operations
     setTimeout(() => {
-      onLoaded(true); // Notify that Particles is loaded
-    }, 1000); // Assuming it takes 1 second to "load"
+      onLoaded(true);
+    }, 1000);
   }, [onLoaded]);
 
   const particles = useMemo(() => {
     const temp = [];
-    for (let i = 0; i < 10000; i++) {
-      const x = Math.random() * 40 - 10; // Random x between -10 and 10
-      const y = Math.random() * 100 - 10; // Random y between -10 and 10
-      const z = Math.random() * 50 - 10; // Random z between -10 and 10
+    for (let i = 0; i < 5000; i++) {
+      const x = Math.random() * 40 - 20;
+      const y = Math.random() * 100 - 50;
+      const z = Math.random() * 50 - 25;
       temp.push({ position: [x, y, z], key: i });
     }
     return temp;
@@ -28,14 +38,15 @@ function Particles({ onLoaded }) {
   const { camera } = useThree();
   const [targetPosition, setTargetPosition] = useState([0, 0, 0]);
   const [isParticleClicked, setIsParticleClicked] = useState(false);
+  const opacity = 1; // Set opacity directly to 1
 
   useFrame(() => {
     if (isParticleClicked) {
-      camera.position.lerp({ x: targetPosition[0], y: targetPosition[1], z: targetPosition[2] + 5 }, 0.1);
+      camera.position.lerp({ x: targetPosition[0], y: targetPosition[1], z: targetPosition[2] + 1 }, 0.1);
     }
   });
 
-  const particleScale = 0.1;
+  const particleScale = 0.05;
 
   return (
     <>
@@ -44,67 +55,68 @@ function Particles({ onLoaded }) {
           setTargetPosition(particle.position);
           setIsParticleClicked(true);
         }}>
-          <meshStandardMaterial attach="material" color="#FFFFFF" />
+          <meshStandardMaterial attach="material" color="white" transparent opacity={opacity} />
         </Sphere>
       ))}
     </>
   );
 }
 
-function CameraAnimator({ active, onAnimationComplete }) {
-  const { camera } = useThree();
-  const duration = 4; // Duration of the animation in seconds
-
-  useFrame((state, delta) => {
-    if (!active) return;
-
-    let progress = state.clock.getElapsedTime() / duration;
-    if (progress >= 1) {
-      progress = 1;
-      onAnimationComplete();
-    }
-
-    // Interpolate position from (0, 0, -5) to (0, 0, 0)
-    camera.position.lerp(new THREE.Vector3(0, 0, -5 * (1 - progress)), 0.1);
-
-    // Interpolate rotation from (90, 90, 0) to (0, 0, 0)
-    const initialRotation = new THREE.Euler(90 * Math.PI / 180, 90 * Math.PI / 180, 0);
-    const finalRotation = new THREE.Euler(0, 0, 0);
-    THREE.Quaternion.slerp(
-      new THREE.Quaternion().setFromEuler(initialRotation),
-      new THREE.Quaternion().setFromEuler(finalRotation),
-      camera.quaternion,
-      progress
-    );
-
-    if (progress === 1) {
-      camera.position.set(0, 0, 0);
-      camera.rotation.set(0, 0, 0);
-    }
-  });
-
-  return null;
-}
 
 function App() {
-  const [cameraAnimating, setCameraAnimating] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const cameraRef = useRef();
 
   useEffect(() => {
     if (isLoaded) {
-      setCameraAnimating(true);
+      // Camera logic on load can be handled if necessary
     }
   }, [isLoaded]);
 
+  useEffect(() => {
+    if (cameraRef.current) {
+      const camera = cameraRef.current;
+      const startPosition = new THREE.Vector3(0, 0, 0); // Initial position
+      const endPosition = new THREE.Vector3(0, 0, 0); // Final position
+      const startRotation = new THREE.Euler(10, 10, 10); // Initial rotation
+      const endRotation = new THREE.Euler(0, 0, 0); // Final rotation
+
+      const startQuaternion = new THREE.Quaternion().setFromEuler(startRotation);
+      const endQuaternion = new THREE.Quaternion().setFromEuler(endRotation);
+
+      const startTime = Date.now();
+      const duration = 1000; // 2 seconds
+
+      const animate = () => {
+        const elapsedTime = Date.now() - startTime;
+        let t = Math.min(1, elapsedTime / duration);
+        t = customEasing(t); // Apply custom cubic-bezier easing function
+
+        // Interpolating position
+        camera.position.lerpVectors(startPosition, endPosition, t);
+
+        // Interpolating rotation using slerp
+        camera.quaternion.slerpQuaternions(startQuaternion, endQuaternion, t);
+
+        if (t < 1) {
+          requestAnimationFrame(animate);
+        }
+      };
+
+      animate();
+    }
+  }, [cameraRef, isLoaded]); // Ensure this runs once the camera is ready and loaded
+
   return (
-    <div style={{ height: '100vh' }}>
-      <Canvas camera={{ position: [0, 0, 10], rotation: [0, 0, 0] }}>
+    <div style={{ height: '100%', width: '100%' }}>
+      <Canvas>
+        <PerspectiveCamera makeDefault ref={cameraRef} position={[0, 0, 0]} fov={90} />
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<Html><div>Loading...</div></Html>}>
           <Particles onLoaded={setIsLoaded} />
         </Suspense>
-        <CameraAnimator active={cameraAnimating} onAnimationComplete={() => setCameraAnimating(false)} />
       </Canvas>
     </div>
   );
