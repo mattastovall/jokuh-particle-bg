@@ -77,9 +77,9 @@ function App() {
   useEffect(() => {
     if (cameraRef.current) {
       const camera = cameraRef.current;
-      const startPosition = new THREE.Vector3(0, 0, 0); // Initial position
+      const startPosition = new THREE.Vector3(0, 0, 200); // Initial position
       const endPosition = new THREE.Vector3(0, 0, 0); // Final position
-      const startRotation = new THREE.Euler(10, 10, 10); // Initial rotation
+      const startRotation = new THREE.Euler(10, 2, 10); // Initial rotation
       const endRotation = new THREE.Euler(0, 0, 0); // Final rotation
 
       const startQuaternion = new THREE.Quaternion().setFromEuler(startRotation);
