@@ -3,8 +3,9 @@ import './App.css';
 import { Canvas, useThree, useFrame, extend, useLoader } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { Sphere, PerspectiveCamera, Html } from '@react-three/drei';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
+import GalaxyView from './components/GalaxyView'; // Adjust the path as necessary
+
 function cubicBezier(p0, p1, p2, p3, t) {
   const k = 1 - t;
   return (k * k * k * p0) +
@@ -17,51 +18,72 @@ function customEasing(t) {
   return cubicBezier(0.07, 0.62, 0.43, 1, t);
 }
 
-function Particles({ onLoaded }) {
+function ParticleComponent({ onLoaded }) {
+  const { camera } = useThree();
+  const [targetPosition, setTargetPosition] = useState([0, 0, 0]);
+  const [isParticleClicked, setIsParticleClicked] = useState(false);
+  const opacity = 1; // Set opacity directly to 1
+  const particleScale = 0.05; // Adjust size as needed
+
+  useFrame(() => {
+    if (isParticleClicked) {
+      camera.position.lerp(new THREE.Vector3(targetPosition[0], targetPosition[1], targetPosition[2] + 10), 0.1);
+    }
+  });
+
   useEffect(() => {
     setTimeout(() => {
       onLoaded(true);
     }, 1000);
   }, [onLoaded]);
 
-  const particles = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < 5000; i++) {
-      const x = Math.random() * 40 - 20;
-      const y = Math.random() * 100 - 50;
-      const z = Math.random() * 50 - 25;
-      temp.push({ position: [x, y, z], key: i });
-    }
-    return temp;
-  }, []);
+  const particlesRef = useRef();
+  const particleColor = "white"; // Set a consistent color for all particles
 
-  const { camera } = useThree();
-  const [targetPosition, setTargetPosition] = useState([0, 0, 0]);
-  const [isParticleClicked, setIsParticleClicked] = useState(false);
-  const opacity = 1; // Set opacity directly to 1
+  const {
+    count = 2500,
+    radius = 25,
+    branches = 5,
+    spin = 0.4,
+    randomness = 0.03,
+    randomnessPower = 2,
+    rotationSpeed = 0.01
+  } = {}; // Default values, adjust as needed
 
-  useFrame(() => {
-    if (isParticleClicked) {
-      camera.position.lerp({ x: targetPosition[0], y: targetPosition[1], z: targetPosition[2] + 1 }, 0.1);
+  useFrame((state) => {
+    if (particlesRef.current) {
+      particlesRef.current.rotation.y = state.clock.getElapsedTime() * rotationSpeed;
     }
   });
 
-  const particleScale = 0.05;
+  const particles = useMemo(() => {
+    let objects = [];
+    for (let i = 0; i < count; i++) {
+      const pRadius = Math.random() * radius;
+      const sAngle = pRadius * spin;
+      const bAngle = ((i % branches) / branches) * Math.PI * 2;
+      const rndX = Math.pow(Math.random(), randomnessPower) * (Math.random() > 0.5 ? 1 : -1) * randomness * radius;
+      const rndY = Math.pow(Math.random(), randomnessPower) * (Math.random() > 0.5 ? 1 : -1) * randomness * radius;
+      const rndZ = Math.pow(Math.random(), randomnessPower) * (Math.random() > 0.5 ? 1 : -1) * randomness * radius;
+      const position = [Math.cos(bAngle + sAngle) * pRadius + rndX, rndY, Math.sin(bAngle + sAngle) * pRadius + rndZ];
+      objects.push({ position, key: i });
+    }
+    return objects;
+  }, [count, radius, branches, spin, randomness, randomnessPower]);
 
   return (
-    <>
+    <group ref={particlesRef}>
       {particles.map(particle => (
         <Sphere key={particle.key} position={particle.position} scale={particleScale} onClick={() => {
           setTargetPosition(particle.position);
           setIsParticleClicked(true);
         }}>
-          <meshStandardMaterial attach="material" color="white" transparent opacity={opacity} />
+          <meshStandardMaterial attach="material" color={particleColor} transparent opacity={opacity} />
         </Sphere>
       ))}
-    </>
+    </group>
   );
 }
-
 
 function App() {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -77,16 +99,16 @@ function App() {
   useEffect(() => {
     if (cameraRef.current) {
       const camera = cameraRef.current;
-      const startPosition = new THREE.Vector3(0, 0, 200); // Initial position
-      const endPosition = new THREE.Vector3(0, 0, 0); // Final position
-      const startRotation = new THREE.Euler(10, 2, 10); // Initial rotation
-      const endRotation = new THREE.Euler(0, 0, 0); // Final rotation
+      const startPosition = new THREE.Vector3(0, 0, 200);
+      const endPosition = new THREE.Vector3(0, 20, 10);
+      const startRotation = new THREE.Euler(0, 2, 0);
+      const endRotation = new THREE.Euler(-1.1, 0, 0);
 
       const startQuaternion = new THREE.Quaternion().setFromEuler(startRotation);
       const endQuaternion = new THREE.Quaternion().setFromEuler(endRotation);
 
       const startTime = Date.now();
-      const duration = 1000; // 2 seconds
+      const duration = 2000; // 2 seconds
 
       const animate = () => {
         const elapsedTime = Date.now() - startTime;
@@ -113,9 +135,9 @@ function App() {
       <Canvas>
         <PerspectiveCamera makeDefault ref={cameraRef} position={[0, 0, 0]} fov={90} />
         <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} />
         <Suspense fallback={<Html><div>Loading...</div></Html>}>
-          <Particles onLoaded={setIsLoaded} />
+          <ParticleComponent onLoaded={setIsLoaded} />
+          <GalaxyView />
         </Suspense>
       </Canvas>
     </div>
