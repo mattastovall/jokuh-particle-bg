@@ -101,12 +101,12 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
   const [selectedParticle, setSelectedParticle] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const opacity = 1;
-  const particleScale = 0.15;
+  const particleScale = 0.05;
 
   // Load texture
-  const texture = new TextureLoader().load('/Star.png'); // Replace 'path/to/your/texture.jpg' with the actual path to your texture file
+  const texture = new TextureLoader().load('/Circle.png'); // Replace 'path/to/your/texture.jpg' with the actual path to your texture file
 
-  const particleCount = 500;
+  const particleCount = 100;
   const spacing = 2;
   const noiseScale = 0.1;
   const sideLength = Math.ceil(Math.cbrt(particleCount));
