@@ -19,7 +19,8 @@ function cubicBezier(p0, p1, p2, p3, t) {
 }
 
 function customEasing(t) {
-  return cubicBezier(0.07, 0.62, 0.43, 1, t);
+  const result = cubicBezier(0.07, 0.62, 0.43, 1, t);
+  return Math.min(result, 1); // Ensure the result does not exceed 1
 }
 
 function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseScale) {

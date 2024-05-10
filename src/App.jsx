@@ -2,11 +2,12 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import './App.css';
 import { Canvas, useThree, useFrame, extend, useLoader } from '@react-three/fiber';
 import { Suspense } from 'react';
-import { Sphere, PerspectiveCamera, Html } from '@react-three/drei';
+import { Sphere, PerspectiveCamera, Html, Svg, Plane } from '@react-three/drei';
 import * as THREE from 'three';
 import SimplexNoise from './components/SimplexNoise';
 import NameText from './components/NameText';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
+import { TextureLoader } from 'three';
 
 
 const simplex = new SimplexNoise();
@@ -23,6 +24,7 @@ function customEasing(t) {
   const result = cubicBezier(0.07, 0.62, 0.43, 1, t);
   return Math.min(result, 1); // Ensure the result does not exceed 1
 }
+
 
 function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseScale) {
   const [particles, setParticles] = useState([]);
@@ -65,11 +67,44 @@ function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseS
   return particles;
 }
 
+function SVGParticle({ position, onClick, scale }) {
+  const mesh = useRef();
+  
+  // Load the SVG texture
+  const texture = useLoader(TextureLoader, '/Star.svg'); // Ensure the path is correct
+
+  // Create a material with the SVG texture
+  const material = useMemo(() => new THREE.MeshBasicMaterial({
+    map: texture,
+    emissive: texture, // Use the same texture for emissive color
+    emissiveIntensity: 1,
+    transparent: true, // Handle SVG transparency
+    side: THREE.DoubleSide,
+    alphaTest: 0.5 // Adjust based on your needs for handling alpha
+  }), [texture]);
+
+  return (
+    <mesh
+      ref={mesh}
+      position={position}
+      scale={scale}
+      onClick={onClick}
+      material={material}
+    >
+      <planeBufferGeometry attach="geometry" args={[1, 1]} />
+    </mesh>
+  );
+}
+
 function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNameText, setShowNameText }) {
   const { camera } = useThree();
   const [selectedParticle, setSelectedParticle] = useState(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   const opacity = 1;
-  const particleScale = 0.05;
+  const particleScale = 0.15;
+
+  // Load texture
+  const texture = new TextureLoader().load('/Star.png'); // Replace 'path/to/your/texture.jpg' with the actual path to your texture file
 
   const particleCount = 500;
   const spacing = 2;
@@ -80,12 +115,26 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
   const particles = useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseScale);
 
   useFrame(() => {
-    const currentPos = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z);
-    const targetVec = new THREE.Vector3(targetPosition[0], targetPosition[1], targetPosition[2] + 0.2);
-    const distance = currentPos.distanceTo(targetVec);
-    const interpolationFactor = Math.min(0.1, 0.05 + 0.05 * (distance / 10));
-    camera.position.lerp(targetVec, interpolationFactor);
+    if (isAnimating) {
+      const currentPos = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z);
+      const targetVec = new THREE.Vector3(targetPosition[0], targetPosition[1], targetPosition[2] + 0.5);
+      const distance = currentPos.distanceTo(targetVec);
+
+      if (distance < 0.001) {
+        camera.position.copy(targetVec);
+        setIsAnimating(false); // Stop the animation once the target is reached
+      } else {
+        const interpolationFactor = 0.05; // Constant slow pace to prevent overshooting
+        camera.position.lerp(targetVec, interpolationFactor);
+      }
+    }
   });
+
+  // Trigger animation from somewhere, for example, onClick
+  const startAnimation = (newTargetPosition) => {
+    setTargetPosition(newTargetPosition);
+    setIsAnimating(true);
+  }
 
   useEffect(() => {
     onLoaded(true);
@@ -94,13 +143,13 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
   return (
     <group>
       {particles.map(particle => (
-        <Sphere key={particle.key} position={particle.position} scale={particleScale} onClick={() => {
-          setTargetPosition(particle.position);
+        <Plane key={particle.key} position={particle.position} scale={particleScale} onClick={() => {
+          startAnimation(particle.position);
           setSelectedParticle(particle);
-          setShowNameText(true); // Ensure NameText is visible when a particle is clicked
+          setShowNameText(true);
         }}>
-          <meshStandardMaterial attach="material" color="white" emissive="white" transparent opacity={opacity} />
-        </Sphere>
+          <meshStandardMaterial attach="material" color="white" emissive="white" transparent opacity={opacity} map={texture} />
+        </Plane>
       ))}
       {selectedParticle && showNameText && (
         <NameText position={[selectedParticle.position[0], selectedParticle.position[1] + 0.1, selectedParticle.position[2]]} name="Particle Name" />
@@ -108,7 +157,6 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
     </group>
   );
 }
-
 function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const cameraRef = useRef();
@@ -148,7 +196,7 @@ function App() {
   
   const handleBackgroundClick = () => {
     if (!cameraRef.current) return;
-    if (cameraRef.current.position.distanceToSquared(endPosition) < 0.01) {
+    if (cameraRef.current.position.distanceToSquared(endPosition) < 0.1) {
       return; // Do nothing if already at endPosition
     }
     setTargetPosition(endPosition.toArray());
