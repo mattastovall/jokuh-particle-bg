@@ -6,7 +6,6 @@ import { Sphere, PerspectiveCamera, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import SimplexNoise from './components/SimplexNoise';
 import NameText from './components/NameText';
-import { Bloom, EffectComposer } from '@react-three/postprocessing';
 
 
 const simplex = new SimplexNoise();
@@ -20,8 +19,7 @@ function cubicBezier(p0, p1, p2, p3, t) {
 }
 
 function customEasing(t) {
-  const result = cubicBezier(0.07, 0.62, 0.43, 1, t);
-  return Math.min(result, 1); // Ensure the result does not exceed 1
+  return cubicBezier(0.07, 0.62, 0.43, 1, t);
 }
 
 function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseScale) {
@@ -65,26 +63,29 @@ function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseS
   return particles;
 }
 
-function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNameText, setShowNameText }) {
+function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNameText }) {
   const { camera } = useThree();
+  const [isParticleClicked, setIsParticleClicked] = useState(false);
   const [selectedParticle, setSelectedParticle] = useState(null);
   const opacity = 1;
   const particleScale = 0.05;
 
-  const particleCount = 500;
+  const particleCount = 500; // Define the number of particles
   const spacing = 2;
   const noiseScale = 0.1;
-  const sideLength = Math.ceil(Math.cbrt(particleCount));
-  const gridDimensions = { x: sideLength, y: sideLength, z: sideLength };
+  const sideLength = Math.ceil(Math.cbrt(particleCount)); // Calculate the side length of the cube to fit the particle count
+  const gridDimensions = { x: sideLength, y: sideLength, z: sideLength }; // Use the side length to set grid dimensions
 
   const particles = useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseScale);
 
   useFrame(() => {
-    const currentPos = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z);
-    const targetVec = new THREE.Vector3(targetPosition[0], targetPosition[1], targetPosition[2] + 0.2);
-    const distance = currentPos.distanceTo(targetVec);
-    const interpolationFactor = Math.min(0.1, 0.05 + 0.05 * (distance / 10));
-    camera.position.lerp(targetVec, interpolationFactor);
+    if (isParticleClicked) {
+      const currentPos = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z);
+      const targetVec = new THREE.Vector3(targetPosition[0], targetPosition[1], targetPosition[2] + 0.2);
+      const distance = currentPos.distanceTo(targetVec);
+      const interpolationFactor = Math.min(0.1, 0.05 + 0.05 * (distance / 10));
+      camera.position.lerp(targetVec, interpolationFactor);
+    }
   });
 
   useEffect(() => {
@@ -96,12 +97,13 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
       {particles.map(particle => (
         <Sphere key={particle.key} position={particle.position} scale={particleScale} onClick={() => {
           setTargetPosition(particle.position);
+          setIsParticleClicked(true);
           setSelectedParticle(particle);
-          setShowNameText(true); // Ensure NameText is visible when a particle is clicked
         }}>
-          <meshStandardMaterial attach="material" color="white" emissive="white" transparent opacity={opacity} />
+          <meshStandardMaterial attach="material" color="white" transparent opacity={opacity} />
         </Sphere>
       ))}
+      {/* Conditionally render NameText based on selectedParticle and showNameText */}
       {selectedParticle && showNameText && (
         <NameText position={[selectedParticle.position[0], selectedParticle.position[1] + 0.1, selectedParticle.position[2]]} name="Particle Name" />
       )}
@@ -112,6 +114,7 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
 function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const cameraRef = useRef();
+  const [isParticleClicked, setIsParticleClicked] = useState(false);
   const [targetPosition, setTargetPosition] = useState([0, 0, 0]);
   const [showNameText, setShowNameText] = useState(true);
 
@@ -120,40 +123,63 @@ function App() {
   useEffect(() => {
     if (cameraRef.current) {
       const camera = cameraRef.current;
-      const startPosition = new THREE.Vector3(0, 0, 200); // Starting position of the camera
-      const endPosition = new THREE.Vector3(0, 0, 10); // Ending position of the camera
-  
+      const startPosition = new THREE.Vector3(0, 0, 200);
+      const startRotation = new THREE.Euler(0, 0, 0);
+      const endRotation = new THREE.Euler(0, 0, 0);
+
+      const startQuaternion = new THREE.Quaternion().setFromEuler(startRotation);
+      const endQuaternion = new THREE.Quaternion().setFromEuler(endRotation);
+
       const startTime = Date.now();
-      const duration = 1000; // Duration of the animation in milliseconds
-  
-      const animate = () => {
-        const elapsedTime = Date.now() - startTime;
-        const t = Math.min(1, elapsedTime / duration); // Normalize time to a range of 0 to 1
-        const easedT = customEasing(t); // Apply easing function
-  
-        camera.position.lerpVectors(startPosition, endPosition, easedT); // Interpolate between start and end positions
-  
-        if (t < 1) {
-          requestAnimationFrame(animate); // Continue the animation if t < 1
+      const duration = 1000;
+
+      const checkPosition = () => {
+        const currentPosition = new THREE.Vector3().copy(camera.position);
+        if (currentPosition.distanceToSquared(endPosition) < 0.25) {
+          setShowNameText(false);
         } else {
-          camera.position.copy(endPosition); // Ensure the camera exactly reaches the end position
-          setShowNameText(false); // Optionally, update state or trigger other actions at the end of the animation
+          setShowNameText(true);
         }
       };
-  
-      animate(); // Start the animation
-    }
-  }, [cameraRef, isLoaded]); // Dependency array to control when the animation runs
 
-  
-  const handleBackgroundClick = () => {
-    if (!cameraRef.current) return;
-    if (cameraRef.current.position.distanceToSquared(endPosition) < 0.01) {
-      return; // Do nothing if already at endPosition
+      const animate = () => {
+        const elapsedTime = Date.now() - startTime;
+        let t = Math.min(1, elapsedTime / duration);
+        t = customEasing(t);
+
+        camera.position.lerpVectors(startPosition, endPosition, t);
+        camera.quaternion.slerpQuaternions(startQuaternion, endQuaternion, t);
+
+        if (t < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          camera.position.copy(endPosition);
+          setShowNameText(false); // Hide the NameText when animation is complete and camera is in end position
+        }
+      };
+
+      animate();
     }
-    setTargetPosition(endPosition.toArray());
-    cameraRef.current.position.copy(endPosition);
-    setShowNameText(false);
+  }, [cameraRef, isLoaded]);
+
+  const handleBackgroundClick = () => {
+    if (cameraRef.current) {
+      const currentPos = cameraRef.current.position;
+      const epsilon = 0.5;
+
+      function isPositionCloseEnough(pos1, pos2, tolerance) {
+        return Math.abs(pos1.x - pos2.x) < tolerance &&
+               Math.abs(pos1.y - pos2.y) < tolerance &&
+               Math.abs(pos1.z - pos2.z) < tolerance;
+      }
+
+      if (isPositionCloseEnough(currentPos, endPosition, epsilon)) {
+        return;
+      }
+      setIsParticleClicked(false);
+      setTargetPosition(endPosition.toArray());
+      cameraRef.current.position.copy(endPosition);
+    }
   };
 
   return (
@@ -162,10 +188,7 @@ function App() {
         <PerspectiveCamera makeDefault ref={cameraRef} position={[0, 0, 0]} fov={90} />
         <ambientLight intensity={0.5} />
         <Suspense fallback={<Html><div>Loading...</div></Html>}>
-          <ParticleComponent onLoaded={setIsLoaded} targetPosition={targetPosition} setTargetPosition={setTargetPosition} showNameText={showNameText} setShowNameText={setShowNameText} />
-          <EffectComposer>
-            <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.9} height={500} />
-          </EffectComposer>
+          <ParticleComponent onLoaded={setIsLoaded} targetPosition={targetPosition} setTargetPosition={setTargetPosition} showNameText={showNameText} />
         </Suspense>
       </Canvas>
     </div>
@@ -173,5 +196,3 @@ function App() {
 }
 
 export default App;
-
-
