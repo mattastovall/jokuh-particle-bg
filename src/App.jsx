@@ -174,25 +174,23 @@ function App() {
   const cameraRef = useRef();
   const [targetPosition, setTargetPosition] = useState([0, 0, 0]);
   const [showNameText, setShowNameText] = useState(true);
-
-  const endPosition = new THREE.Vector3(0, 0, 10);
+  const [endPosition, setEndPosition] = useState(new THREE.Vector3(0, 0, 2));
 
   useEffect(() => {
     if (cameraRef.current) {
       const camera = cameraRef.current;
       const startPosition = new THREE.Vector3(0, 0, 200); // Starting position of the camera
-      const endPosition = new THREE.Vector3(0, 0, 10); // Ending position of the camera
-  
+
       const startTime = Date.now();
       const duration = 1000; // Duration of the animation in milliseconds
-  
+
       const animate = () => {
         const elapsedTime = Date.now() - startTime;
         const t = Math.min(1, elapsedTime / duration); // Normalize time to a range of 0 to 1
         const easedT = customEasing(t); // Apply easing function
-  
+
         camera.position.lerpVectors(startPosition, endPosition, easedT); // Interpolate between start and end positions
-  
+
         if (t < 1) {
           requestAnimationFrame(animate); // Continue the animation if t < 1
         } else {
@@ -200,10 +198,10 @@ function App() {
           setShowNameText(false); // Optionally, update state or trigger other actions at the end of the animation
         }
       };
-  
+
       animate(); // Start the animation
     }
-  }, [cameraRef, isLoaded]); // Dependency array to control when the animation runs
+  }, [cameraRef, isLoaded, endPosition]); // Include endPosition in the dependency array
 
   
   const handleBackgroundClick = () => {
@@ -219,7 +217,7 @@ function App() {
   return (
     <div style={{ height: '100%', width: '100%' }}>
       <Canvas onPointerMissed={handleBackgroundClick}>
-        <PerspectiveCamera makeDefault ref={cameraRef} position={[0, 0, 0]} fov={90} />
+        <PerspectiveCamera makeDefault ref={cameraRef} position={[0, 0, 5]} fov={90} />
         <ambientLight intensity={0.5} />
         <Suspense fallback={<Html><div>Loading...</div></Html>}>
           <ParticleComponent onLoaded={setIsLoaded} targetPosition={targetPosition} setTargetPosition={setTargetPosition} showNameText={showNameText} setShowNameText={setShowNameText} />
@@ -233,5 +231,4 @@ function App() {
 }
 
 export default App;
-
 
