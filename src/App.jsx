@@ -68,7 +68,7 @@ function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseS
 }
 
 
-function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNameText, setShowNameText }) {
+function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNameText, setShowNameText, selectParticle }) {
   const { camera } = useThree();
   const refGroup = useRef();
 
@@ -119,11 +119,6 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
 
 
 
-  const handleBackgroundClick = () => {
-    setIsAnimating(false); // Update the isAnimating state
-    cameraRef.current.position.copy(endPosition);
-    setShowNameText(false);
-  };
   return (
     <group ref={refGroup}>
       {particles.map((particle, index) => {
@@ -139,6 +134,7 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
                 handleBackgroundClick();
               } else {
                 startAnimation(particle);
+                selectParticle(particle.position);
               }
             }}
           >
@@ -161,6 +157,7 @@ function App() {
   const [targetPosition, setTargetPosition] = useState([0, 0, 0]);
   const [showNameText, setShowNameText] = useState(true);
   const [endPosition, setEndPosition] = useState(new THREE.Vector3(0, 0, 2));
+  const [particleSelected, setParticleSelected] = useState(false); // New state to track if a particle is selected
 
   useEffect(() => {
     if (cameraRef.current) {
@@ -191,20 +188,26 @@ function App() {
 
   
   const handleBackgroundClick = () => {
-    if (!cameraRef.current || !endPosition) return;
-    
-    // Move the camera to the end position
-    cameraRef.current.position.lerp(endPosition, 1);
-    setShowNameText(false); // Optionally, hide any UI elements
+    if (!particleSelected) { // Only allow background click if no particle is selected
+      const endPosition = new THREE.Vector3(0, 0, 5); // Define the end position
+      cameraRef.current.position.lerp(endPosition, 1);
+      setShowNameText(false); // Optionally, hide any UI elements
+      setParticleSelected(false); // Reset particle selection state
+    }
   };
   
+  const selectParticle = (position) => {
+    setParticleSelected(true); // Set particle as selected
+    setTargetPosition(position); // Assume this function is defined to handle particle selection
+  };
+
   return (
     <div style={{ height: '100%', width: '100%' }}>
       <Canvas onPointerMissed={handleBackgroundClick}>
         <PerspectiveCamera makeDefault ref={cameraRef} position={[0, 0, 5]} fov={90} />
         <ambientLight intensity={0.5} />
         <Suspense fallback={<Html><div>Loading...</div></Html>}>
-          <ParticleComponent onLoaded={setIsLoaded} targetPosition={targetPosition} setTargetPosition={setTargetPosition} showNameText={showNameText} setShowNameText={setShowNameText} />
+          <ParticleComponent onLoaded={setIsLoaded} targetPosition={targetPosition} setTargetPosition={setTargetPosition} showNameText={showNameText} setShowNameText={setShowNameText} selectParticle={selectParticle} />
           <EffectComposer>
             <Bloom luminanceThreshold={0.1} luminanceSmoothing={10} height={50} />
           </EffectComposer>
