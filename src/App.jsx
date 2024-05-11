@@ -26,9 +26,9 @@ function customEasing(t) {
 }
 
 
-function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseScale) {
+function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseScale, seed) {
   const [particles, setParticles] = useState([]);
-  const simplex = new SimplexNoise(Math.random());
+  const simplex = new SimplexNoise(seed);  // Use a fixed seed
 
   useEffect(() => {
     const updatePositions = () => {
@@ -62,7 +62,7 @@ function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseS
     const intervalId = setInterval(updatePositions, 1000); // Update every 1000 ms
 
     return () => clearInterval(intervalId); // Clean up
-  }, []);
+  }, [seed]);  // Add seed to the dependency array
 
   return particles;
 }
@@ -100,11 +100,9 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
   const { camera } = useThree();
   const [selectedParticle, setSelectedParticle] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
-  const opacity = 1;
   const particleScale = 0.05;
 
-  // Load texture
-  const texture = new TextureLoader().load('/Circle.png'); // Replace 'path/to/your/texture.jpg' with the actual path to your texture file
+  const texture = new TextureLoader().load('/Circle.png');
 
   const particleCount = 100;
   const spacing = 2;
@@ -112,15 +110,31 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
   const sideLength = Math.ceil(Math.cbrt(particleCount));
   const gridDimensions = { x: sideLength, y: sideLength, z: sideLength };
 
-  const particles = useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseScale);
+  const seed = 12345;
+  const particles = useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseScale, seed);
+
+  // Calculate opacity based on distance to camera
+  const calculateOpacity = (position) => {
+    const particlePosition = new THREE.Vector3(...position);
+    const distance = camera.position.distanceTo(particlePosition);
+    const maxDistance = 2;  // This value might need adjustment based on your scene's scale
+    const opacity = Math.max(0.2, 1 - (distance / maxDistance * 0.5));
+    return opacity;
+  };
+
+  // Function to start animation towards the target position
+  const startAnimation = (newTargetPosition) => {
+    setTargetPosition(newTargetPosition);
+    setIsAnimating(true);
+  };
 
   useFrame(() => {
-    if (isAnimating) {
+    if (isAnimating && targetPosition) {
       const currentPos = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z);
       const targetVec = new THREE.Vector3(targetPosition[0], targetPosition[1], targetPosition[2] + 0.5);
       const distance = currentPos.distanceTo(targetVec);
 
-      if (distance < 0.001) {
+      if (distance < 0.01) {
         camera.position.copy(targetVec);
         setIsAnimating(false); // Stop the animation once the target is reached
       } else {
@@ -130,33 +144,31 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
     }
   });
 
-  // Trigger animation from somewhere, for example, onClick
-  const startAnimation = (newTargetPosition) => {
-    setTargetPosition(newTargetPosition);
-    setIsAnimating(true);
-  }
-
   useEffect(() => {
     onLoaded(true);
   }, [onLoaded]);
 
   return (
     <group>
-      {particles.map(particle => (
-        <Plane key={particle.key} position={particle.position} scale={particleScale} onClick={() => {
-          startAnimation(particle.position);
-          setSelectedParticle(particle);
-          setShowNameText(true);
-        }}>
-          <meshStandardMaterial attach="material" color="white" emissive="white" transparent opacity={opacity} map={texture} />
-        </Plane>
-      ))}
+      {particles.map(particle => {
+        const opacity = calculateOpacity(particle.position);
+        return (
+          <Plane key={particle.key} position={particle.position} scale={particleScale} onClick={() => {
+            startAnimation(particle.position);
+            setSelectedParticle(particle);
+            setShowNameText(true);
+          }}>
+            <meshStandardMaterial attach="material" color="white" emissive="white" transparent opacity={opacity} map={texture} />
+          </Plane>
+        );
+      })}
       {selectedParticle && showNameText && (
         <NameText position={[selectedParticle.position[0], selectedParticle.position[1] + 0.1, selectedParticle.position[2]]} name="Particle Name" />
       )}
     </group>
   );
 }
+
 function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const cameraRef = useRef();
@@ -196,7 +208,7 @@ function App() {
   
   const handleBackgroundClick = () => {
     if (!cameraRef.current) return;
-    if (cameraRef.current.position.distanceToSquared(endPosition) < 0.1) {
+    if (cameraRef.current.position.distanceToSquared(endPosition) < 0.5) {
       return; // Do nothing if already at endPosition
     }
     setTargetPosition(endPosition.toArray());
@@ -212,7 +224,7 @@ function App() {
         <Suspense fallback={<Html><div>Loading...</div></Html>}>
           <ParticleComponent onLoaded={setIsLoaded} targetPosition={targetPosition} setTargetPosition={setTargetPosition} showNameText={showNameText} setShowNameText={setShowNameText} />
           <EffectComposer>
-            <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.9} height={500} />
+            <Bloom luminanceThreshold={0.1} luminanceSmoothing={10} height={50} />
           </EffectComposer>
         </Suspense>
       </Canvas>
