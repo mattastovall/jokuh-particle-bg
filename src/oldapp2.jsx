@@ -67,6 +67,34 @@ function useConsistentNoiseUpdate(particleCount, spacing, gridDimensions, noiseS
   return particles;
 }
 
+function SVGParticle({ position, onClick, scale }) {
+  const mesh = useRef();
+  
+  // Load the SVG texture
+  const texture = useLoader(TextureLoader, '/Star.svg'); // Ensure the path is correct
+
+  // Create a material with the SVG texture
+  const material = useMemo(() => new THREE.MeshBasicMaterial({
+    map: texture,
+    emissive: texture, // Use the same texture for emissive color
+    emissiveIntensity: 1,
+    transparent: true, // Handle SVG transparency
+    side: THREE.DoubleSide,
+    alphaTest: 0.5 // Adjust based on your needs for handling alpha
+  }), [texture]);
+
+  return (
+    <mesh
+      ref={mesh}
+      position={position}
+      scale={scale}
+      onClick={onClick}
+      material={material}
+    >
+      <planeBufferGeometry attach="geometry" args={[1, 1]} />
+    </mesh>
+  );
+}
 
 function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNameText, setShowNameText }) {
   const { camera } = useThree();
@@ -117,6 +145,7 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
     onLoaded(true);
   }, [onLoaded]);
 
+  const [isAnimating, setIsAnimating] = useState(false);
 
 
   const handleBackgroundClick = () => {
@@ -191,13 +220,15 @@ function App() {
 
   
   const handleBackgroundClick = () => {
-    if (!cameraRef.current || !endPosition) return;
-    
-    // Move the camera to the end position
-    cameraRef.current.position.lerp(endPosition, 1);
-    setShowNameText(false); // Optionally, hide any UI elements
+    if (!cameraRef.current) return;
+    if (cameraRef.current.position.distanceToSquared(endPosition) < 0.5) {
+      return; // Do nothing if already at endPosition
+    }
+    setTargetPosition(endPosition.toArray());
+    cameraRef.current.position.copy(endPosition);
+    setShowNameText(false);
   };
-  
+
   return (
     <div style={{ height: '100%', width: '100%' }}>
       <Canvas onPointerMissed={handleBackgroundClick}>

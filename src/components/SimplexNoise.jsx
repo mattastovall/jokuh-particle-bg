@@ -1,5 +1,6 @@
 class SimplexNoise {
-    constructor(seed = Math.random()) {
+    constructor(seed = Math.random(), scale = 1.0) {
+        this.scale = scale;
         this.grad3 = [
             [1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0],
             [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1],
@@ -20,6 +21,11 @@ class SimplexNoise {
     }
 
     noise(xin, yin, zin) {
+        // Apply scale to input coordinates
+        xin *= this.scale;
+        yin *= this.scale;
+        zin *= this.scale;
+
         let n0, n1, n2, n3;
         let F3 = 1.0 / 3.0;
         let s = (xin + yin + zin) * F3;
