@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import './App.css';
-import { Canvas, useThree, useFrame, extend, useLoader } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Suspense } from 'react';
-import { Sphere, PerspectiveCamera, Html, Svg, Plane } from '@react-three/drei';
+import { PerspectiveCamera, Html, Plane } from '@react-three/drei';
 import * as THREE from 'three';
 import SimplexNoise from './components/SimplexNoise';
 import NameText from './components/NameText';
