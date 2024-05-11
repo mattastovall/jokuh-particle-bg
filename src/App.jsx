@@ -77,8 +77,8 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
   const texture = new TextureLoader().load('/Circle.png');
   const particleScale = 0.05;
 
-  const particleCount = 100;
-  const spacing = 2;
+  const particleCount = 900;
+  const spacing = 6;
   const noiseScale = 0.1;
   const sideLength = Math.ceil(Math.cbrt(particleCount));
   const gridDimensions = { x: sideLength, y: sideLength, z: sideLength };
@@ -117,8 +117,6 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
     onLoaded(true);
   }, [onLoaded]);
 
-
-
   return (
     <group ref={refGroup}>
       {particles.map((particle, index) => {
@@ -129,13 +127,9 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
             position={particle.position}
             scale={particleScale}
             onClick={(event) => {
-              if (event.target === event.currentTarget) {
-                // If the click event target is the Plane itself (i.e., the background), call handleBackgroundClick
-                handleBackgroundClick();
-              } else {
-                startAnimation(particle);
-                selectParticle(particle.position);
-              }
+              event.stopPropagation();  // Prevent event from propagating
+              startAnimation(particle);
+              selectParticle(particle.position);
             }}
           >
             <meshStandardMaterial attach="material" color="white" emissive="white" transparent opacity={Math.max(0.2, opacity)} map={texture} />
@@ -148,7 +142,6 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
     </group>
   );
 }
-
 
 
 function App() {
@@ -186,15 +179,7 @@ function App() {
     }
   }, [cameraRef, isLoaded, endPosition]); // Include endPosition in the dependency array
 
-  
-  const handleBackgroundClick = () => {
-    if (!particleSelected) { // Only allow background click if no particle is selected
-      const endPosition = new THREE.Vector3(0, 0, 5); // Define the end position
-      cameraRef.current.position.lerp(endPosition, 1);
-      setShowNameText(false); // Optionally, hide any UI elements
-      setParticleSelected(false); // Reset particle selection state
-    }
-  };
+
   
   const selectParticle = (position) => {
     setParticleSelected(true); // Set particle as selected
@@ -203,7 +188,7 @@ function App() {
 
   return (
     <div style={{ height: '100%', width: '100%' }}>
-      <Canvas onPointerMissed={handleBackgroundClick}>
+      <Canvas>
         <PerspectiveCamera makeDefault ref={cameraRef} position={[0, 0, 5]} fov={90} />
         <ambientLight intensity={0.5} />
         <Suspense fallback={<Html><div>Loading...</div></Html>}>
