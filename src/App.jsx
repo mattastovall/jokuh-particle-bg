@@ -86,7 +86,9 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
 
   useFrame((state, delta) => {
     if (refGroup.current) {
-      refGroup.current.rotation.x += delta * 0.02;
+      const rotationSpeed = 0.02; // Adjust rotation speed here
+      const smoothDelta = Math.min(delta, 0.016); // Clamping delta to a max of 60 FPS equivalent
+      refGroup.current.rotation.x += smoothDelta * rotationSpeed;
       refGroup.current.children.forEach((child) => {
         child.lookAt(camera.position);
       });
@@ -116,6 +118,8 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
     onLoaded(true);
   }, [onLoaded]);
 
+  const clickRadius = 50; // Increase this value to increase the click radius
+
   return (
     <group ref={refGroup}>
       {particles.map((particle, index) => {
@@ -126,10 +130,22 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
             position={particle.position}
             scale={particleScale}
             onClick={(event) => {
-              event.stopPropagation();  // Prevent event from propagating
-              console.log('Particle clicked:', particle);
-              startAnimation(particle);
-              selectParticle(particle.position);
+              const mouse = new THREE.Vector2(
+                (event.clientX / window.innerWidth) * 2 - 1,
+                -(event.clientY / window.innerHeight) * 2 + 1
+              );
+              const raycaster = new THREE.Raycaster();
+              raycaster.setFromCamera(mouse, camera);
+              const intersects = raycaster.intersectObjects([event.object]);
+              if (intersects.length > 0) {
+                const distance = intersects[0].distance;
+                if (distance <= clickRadius) {
+                  event.stopPropagation();  // Prevent event from propagating
+                  console.log('Particle clicked:', particle);
+                  startAnimation(particle);
+                  selectParticle(particle.position);
+                }
+              }
             }}
           >
             <meshStandardMaterial attach="material" color="white" emissive="white" transparent opacity={Math.max(0.2, opacity)} map={texture} />
