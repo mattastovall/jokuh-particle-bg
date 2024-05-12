@@ -77,7 +77,7 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
   const particleScale = 0.05;
 
   const particleCount = 900;
-  const spacing = 6;
+  const spacing = 5;
   const noiseScale = 0.1;
   const sideLength = Math.ceil(Math.cbrt(particleCount));
   const gridDimensions = { x: sideLength, y: sideLength, z: sideLength };
@@ -118,7 +118,29 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
     onLoaded(true);
   }, [onLoaded]);
 
-  const clickRadius = 50; // Increase this value to increase the click radius
+  const raycaster = new THREE.Raycaster();
+  raycaster.params.Points.threshold = 10000; // Adjust this value to increase or decrease sensitivity
+
+  const onMouseClick = (event) => {
+    const mouse = new THREE.Vector2(
+      (event.clientX / window.innerWidth) * 2 - 1,
+      -(event.clientY / window.innerHeight) * 2 + 1
+    );
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects([refGroup.current]); // Replace 'refGroup.current' with your actual particle mesh or group
+
+    if (intersects.length > 0) {
+      const particle = intersects[0].object;
+      selectParticle(particle.position);
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener('click', onMouseClick);
+    return () => {
+      window.removeEventListener('click', onMouseClick);
+    };
+  }, []);
 
   return (
     <group ref={refGroup}>
@@ -134,17 +156,13 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
                 (event.clientX / window.innerWidth) * 2 - 1,
                 -(event.clientY / window.innerHeight) * 2 + 1
               );
-              const raycaster = new THREE.Raycaster();
               raycaster.setFromCamera(mouse, camera);
               const intersects = raycaster.intersectObjects([event.object]);
               if (intersects.length > 0) {
-                const distance = intersects[0].distance;
-                if (distance <= clickRadius) {
-                  event.stopPropagation();  // Prevent event from propagating
-                  console.log('Particle clicked:', particle);
-                  startAnimation(particle);
-                  selectParticle(particle.position);
-                }
+                event.stopPropagation();  // Prevent event from propagating
+                console.log('Particle clicked:', particle);
+                startAnimation(particle);
+                selectParticle(particle.position);
               }
             }}
           >
