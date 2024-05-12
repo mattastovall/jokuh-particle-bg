@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import './App.css';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Suspense } from 'react';
-import { PerspectiveCamera, Html, Plane } from '@react-three/drei';
+import { PerspectiveCamera, Html, Svg, Plane } from '@react-three/drei';
 import * as THREE from 'three';
 import SimplexNoise from './components/SimplexNoise';
 import NameText from './components/NameText';
@@ -10,7 +10,6 @@ import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { TextureLoader } from 'three';
 
 
-const simplex = new SimplexNoise();
 
 function cubicBezier(p0, p1, p2, p3, t) {
   const k = 1 - t;
@@ -128,6 +127,7 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
             scale={particleScale}
             onClick={(event) => {
               event.stopPropagation();  // Prevent event from propagating
+              console.log('Particle clicked:', particle);
               startAnimation(particle);
               selectParticle(particle.position);
             }}
