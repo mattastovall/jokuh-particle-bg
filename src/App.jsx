@@ -2,12 +2,13 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import './App.css';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Suspense } from 'react';
-import { PerspectiveCamera, Html, Svg, Plane } from '@react-three/drei';
+import { PerspectiveCamera, Html, Plane } from '@react-three/drei';
 import * as THREE from 'three';
 import SimplexNoise from './components/SimplexNoise';
 import NameText from './components/NameText';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { TextureLoader } from 'three';
+
 
 
 
@@ -74,7 +75,7 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
   const [selectedParticle, setSelectedParticle] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const texture = new TextureLoader().load('/Circle.png');
-  const particleScale = 0.05;
+  const particleScale = 0.15;
 
   const particleCount = 900;
   const spacing = 5;
@@ -86,7 +87,7 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
 
   useFrame((state, delta) => {
     if (refGroup.current) {
-      const rotationSpeed = 0.02; // Adjust rotation speed here
+      const rotationSpeed = 0.01; // Adjust rotation speed here
       const smoothDelta = Math.min(delta, 0.016); // Clamping delta to a max of 60 FPS equivalent
       refGroup.current.rotation.x += smoothDelta * rotationSpeed;
       refGroup.current.children.forEach((child) => {
@@ -119,7 +120,7 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
   }, [onLoaded]);
 
   const raycaster = new THREE.Raycaster();
-  raycaster.params.Points.threshold = 10000; // Adjust this value to increase or decrease sensitivity
+  raycaster.params.Points.threshold = 9999999999; // Adjust this value to increase or decrease sensitivity
 
   const onMouseClick = (event) => {
     const mouse = new THREE.Vector2(
@@ -127,6 +128,8 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
       -(event.clientY / window.innerHeight) * 2 + 1
     );
     raycaster.setFromCamera(mouse, camera);
+    const zoomFactor = camera.zoom; // Assuming the camera has a zoom property
+    raycaster.params.Points.threshold = 10 * zoomFactor; // Adjust the multiplier as needed
     const intersects = raycaster.intersectObjects([refGroup.current]); // Replace 'refGroup.current' with your actual particle mesh or group
 
     if (intersects.length > 0) {
@@ -147,7 +150,7 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
       {particles.map((particle, index) => {
         const opacity = 1 - (camera.position.distanceTo(new THREE.Vector3(...particle.position)) / 50);
         return (
-          <Plane
+          <mesh
             key={index}
             position={particle.position}
             scale={particleScale}
@@ -166,8 +169,12 @@ function ParticleComponent({ onLoaded, targetPosition, setTargetPosition, showNa
               }
             }}
           >
-            <meshStandardMaterial attach="material" color="white" emissive="white" transparent opacity={Math.max(0.2, opacity)} map={texture} />
-          </Plane>
+            <Plane scale={particleScale}>
+              <meshStandardMaterial attach="material" color="white" emissive="white" transparent opacity={Math.max(0.2, opacity)} map={texture} />
+            </Plane>
+            <sphereGeometry args={[1, 4, 4]} />
+            <meshBasicMaterial attach="material" transparent opacity={0} visible={false} />
+          </mesh>
         );
       })}
       {selectedParticle && (
@@ -222,7 +229,7 @@ function App() {
 
   return (
     <div style={{ height: '100%', width: '100%' }}>
-      <Canvas>
+      <Canvas gl={{ antialias: true, alpha: true }}>
         <PerspectiveCamera makeDefault ref={cameraRef} position={[0, 0, 5]} fov={90} />
         <ambientLight intensity={0.5} />
         <Suspense fallback={<Html><div>Loading...</div></Html>}>

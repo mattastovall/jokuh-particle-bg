@@ -32,4 +32,5 @@ body {
 
 p {
   font-size: 2em;
+  user-select: none;
 }
